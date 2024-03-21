@@ -47,6 +47,7 @@ class TransactionTestBase : public ::testing::Test {
 
   TransactionDBOptions txn_db_options;
   bool use_stackable_db_;
+  bool keep_db_local_ = false; // Used to keep the db temporary files after the test is done
 
   TransactionTestBase(bool use_stackable_db, bool two_write_queue,
                       TxnDBWritePolicy write_policy,
@@ -84,15 +85,23 @@ class TransactionTestBase : public ::testing::Test {
   }
 
   ~TransactionTestBase() {
-    delete db;
-    db = nullptr;
+    if (db) { // delete the db if exists
+      delete db;
+      db = nullptr;
+    }
     // This is to skip the assert statement in FaultInjectionTestEnv. There
     // seems to be a bug in btrfs that the makes readdir return recently
     // unlink-ed files. By using the default fs we simply ignore errors resulted
     // from attempting to delete such files in DestroyDB.
-    options.env = Env::Default();
-    DestroyDB(dbname, options);
-    delete env;
+    if (env) {
+      options.env = Env::Default();
+      delete env;
+      env = nullptr;
+    }
+
+    if (!keep_db_local_) {
+      DestroyDB(dbname, options);
+    }
   }
 
   Status ReOpenNoDelete() {
