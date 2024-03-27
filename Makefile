@@ -577,6 +577,8 @@ TESTS = \
 	compaction_job_stats_test \
 	option_change_migration_test \
 	transaction_test \
+	transaction_checker \
+	transaction_workload \
 	ldb_cmd_test \
 	persistent_cache_test \
 	statistics_test \
@@ -621,6 +623,8 @@ PARALLEL_TEST = \
 	persistent_cache_test \
 	table_test \
 	transaction_test \
+	transaction_checker \
+	transaction_workload \
 	write_prepared_transaction_test \
 	write_unprepared_transaction_test \
 
@@ -1650,6 +1654,12 @@ heap_test: util/heap_test.o $(GTEST)
 	$(AM_LINK)
 
 transaction_test: utilities/transactions/transaction_test.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(AM_LINK)
+
+transaction_checker: utilities/transactions/rocksdb_checker.o $(LIBOBJECTS) $(TESTHARNESS)
+	$(AM_LINK)
+
+transaction_workload: utilities/transactions/rocksdb_workload.o $(LIBOBJECTS) $(TESTHARNESS)
 	$(AM_LINK)
 
 write_prepared_transaction_test: utilities/transactions/write_prepared_transaction_test.o $(LIBOBJECTS) $(TESTHARNESS)

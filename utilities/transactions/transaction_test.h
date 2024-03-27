@@ -47,7 +47,7 @@ class TransactionTestBase : public ::testing::Test {
 
   TransactionDBOptions txn_db_options;
   bool use_stackable_db_;
-  bool keep_db_local_ = false; // Used to keep the db temporary files after the test is done
+  bool keep_db_local_ = true; // Used to keep the db temporary files after the test is done
 
   TransactionTestBase(bool use_stackable_db, bool two_write_queue,
                       TxnDBWritePolicy write_policy,
@@ -62,7 +62,8 @@ class TransactionTestBase : public ::testing::Test {
     env = new FaultInjectionTestEnv(Env::Default());
     options.env = env;
     options.two_write_queues = two_write_queue;
-    dbname = test::PerThreadDBPath("transaction_testdb");
+    // use perThreadDBPath to avoid conflict with other tests
+    dbname = test::PerThreadDBPath("/home/jiexiao/squint/copy_bug1/alice/workload_dir", "transaction_testdb");
 
     DestroyDB(dbname, options);
     txn_db_options.transaction_lock_timeout = 0;
@@ -492,6 +493,16 @@ class TransactionTest
       : TransactionTestBase(std::get<0>(GetParam()), std::get<1>(GetParam()),
                             std::get<2>(GetParam()), std::get<3>(GetParam())){};
 };
+
+class MyTransactionTest: public TransactionTestBase{
+ public:
+  MyTransactionTest(bool use_stackable_db, bool two_write_queue,
+                      TxnDBWritePolicy write_policy,
+                      WriteOrdering write_ordering)
+      : TransactionTestBase(use_stackable_db, two_write_queue, write_policy,
+                            write_ordering){};
+};
+
 
 class TransactionStressTest : public TransactionTest {};
 
