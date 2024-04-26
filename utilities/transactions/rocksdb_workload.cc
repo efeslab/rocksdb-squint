@@ -28,7 +28,7 @@ class MyTransactionTestBase {
     options.env = env;
     options.two_write_queues = two_write_queue;
     // use perThreadDBPath to avoid conflict with other tests
-    dbname = test::PerThreadDBPath("/home/jiexiao/squint/copy_bug1/alice/workload_dir", "transaction_testdb");
+    dbname = test::PerThreadDBPath("/home/jiexiao/squint/copy_bug1/pmcc/squint_test_dir", "transaction_testdb");
 
     DestroyDB(dbname, options);
     txn_db_options.transaction_lock_timeout = 0;
@@ -506,90 +506,87 @@ int main() {
 
     ////////////////////////// CREATE TABLE //////////////////////////
     /////////////////////// DOUBLE CRASH TEST ////////////////////////
+    for (const bool manual_wal_flush : {false, true}) {
+      for (const bool write_after_recovery : {false, true}) {
+        options.wal_recovery_mode = WALRecoveryMode::kPointInTimeRecovery;
+        options.manual_wal_flush = manual_wal_flush;
+        txn_test_base.ReOpen();
+        std::string cf_name = "two";
+        ColumnFamilyOptions cf_options;
+        ColumnFamilyHandle* cf_handle = nullptr;
+        (db->CreateColumnFamily(cf_options, cf_name, &cf_handle));
 
-    const bool write_after_recovery = true;
+        // Add a prepare entry to prevent the older logs from being deleted.
+        WriteOptions write_options;
+        TransactionOptions txn_options;
+        Transaction* txn = db->BeginTransaction(write_options, txn_options);
+        (txn->SetName("xid"));
+        (txn->Put(Slice("foo-prepare"), Slice("bar-prepare")));
+        (txn->Prepare());
 
-    // Set up the environment for the test
-    options.wal_recovery_mode = WALRecoveryMode::kPointInTimeRecovery;
-    
-    // clean up before th testing and create new column family
-    txn_test_base.ReOpen();
-    std::string cf_name = "two";
-    ColumnFamilyOptions cf_options;
-    ColumnFamilyHandle* cf_handle = nullptr;
-    (db->CreateColumnFamily(cf_options, cf_name, &cf_handle));
+        FlushOptions flush_ops;
+        db->Flush(flush_ops);
+        // Now we have a log that cannot be deleted
 
-    // Add a prepare entry to prevent the older logs from being deleted.
-    WriteOptions write_options;
-    TransactionOptions txn_options;
-    Transaction* txn = db->BeginTransaction(write_options, txn_options);
-    (txn->SetName("xid"));
-    (txn->Put(Slice("foo-prepare"), Slice("bar-prepare")));
-    (txn->Prepare());
+        (db->Put(write_options, cf_handle, "foo1", "bar1"));
+        // Flush only the 2nd cf
+        db->Flush(flush_ops, cf_handle);
 
-    FlushOptions flush_ops;
-    db->Flush(flush_ops);
-    // Now we have a log that cannot be deleted
+        // The value is large enough to be touched by the corruption we ingest
+        // below.
+        std::string large_value(400, ' ');
+        // key/value not touched by corruption
+        (db->Put(write_options, "foo2", "bar2"));
+        // key/value touched by corruption
+        (db->Put(write_options, "foo3", large_value));
+        // key/value not touched by corruption
+        (db->Put(write_options, "foo4", "bar4"));
 
-     (db->Put(write_options, cf_handle, "foo1", "bar1"));
-    // Flush only the 2nd cf
-    db->Flush(flush_ops, cf_handle);
+        db->FlushWAL(true);
+        DBImpl* db_impl = reinterpret_cast<DBImpl*>(db->GetRootDB());
+        uint64_t wal_file_id = db_impl->TEST_LogfileNumber();
+        std::string fname = LogFileName(dbname, wal_file_id);
+        // reinterpret_cast<PessimisticTransactionDB*>(db)->TEST_Crash();
+        delete txn;
+        delete cf_handle;
+        delete db;
+        db = nullptr;
 
-    // The value is large enough to be touched by the corruption we ingest
-    // below.
-    std::string large_value(400, ' ');
-    // key/value not touched by corruption
-    (db->Put(write_options, "foo2", "bar2"));
-    // key/value touched by corruption
-    (db->Put(write_options, "foo3", large_value));
-    // key/value not touched by corruption
-    (db->Put(write_options, "foo4", "bar4"));
+        // Corrupt the last log file in the middle, so that it is not corrupted
+        // in the tail.
+        std::string file_content;
+        (ReadFileToString(env, fname, &file_content));
+        file_content[400] = 'h';
+        file_content[401] = 'a';
+        (env->DeleteFile(fname));
+        (WriteStringToFile(env, file_content, fname, true));
 
-    // Persist data written to WAL during recovery or by the last Put
-    db->FlushWAL(true);
-    DBImpl* db_impl = reinterpret_cast<DBImpl*>(db->GetRootDB());
-    uint64_t wal_file_id = db_impl->TEST_LogfileNumber();
-    std::string fname = LogFileName(dbname, wal_file_id);
-    // reinterpret_cast<PessimisticTransactionDB*>(db)->prepared_txns_.TEST_CRASH_ = true;
-    delete txn;
-    delete cf_handle;
-    delete db;
-    db = nullptr;
+        // Recover from corruption
+        std::vector<ColumnFamilyHandle*> handles;
+        std::vector<ColumnFamilyDescriptor> column_families;
+        column_families.push_back(ColumnFamilyDescriptor(kDefaultColumnFamilyName,
+                                                        ColumnFamilyOptions()));
+        column_families.push_back(
+            ColumnFamilyDescriptor("two", ColumnFamilyOptions()));
+        (txn_test_base.ReOpenNoDelete(column_families, &handles));
 
-    // Corrupt the last log file in the middle, so that it is not corrupted
-    // in the tail.
-    std::string file_content;
-    (ReadFileToString(env, fname, &file_content));
-    file_content[400] = 'h';
-    file_content[401] = 'a';
-    env->DeleteFile(fname);
-    (WriteStringToFile(env, file_content, fname));
+        if (write_after_recovery) {
+          // Write data to the log right after the corrupted log
+          (db->Put(write_options, "foo5", large_value));
+        }
 
-    // Recover from corruption
-    std::vector<ColumnFamilyHandle*> handles;
-    std::vector<ColumnFamilyDescriptor> column_families;
-    column_families.push_back(ColumnFamilyDescriptor(kDefaultColumnFamilyName,
-                                                     ColumnFamilyOptions()));
-    column_families.push_back(
-        ColumnFamilyDescriptor("two", ColumnFamilyOptions()));
-    (txn_test_base.ReOpenNoDelete(column_families, &handles));
-
-    if (write_after_recovery) {
-      // Write data to the log right after the corrupted log
-      (db->Put(write_options, "foo5", large_value));
-    }
-
-    // Persist data written to WAL during recovery or by the last Put
-    db->FlushWAL(true);
-    // 2nd crash to recover while having a valid log after the corrupted one.
-    (txn_test_base.ReOpenNoDelete(column_families, &handles));
-    assert(db != nullptr);
-    txn = db->GetTransactionByName("xid");
-    assert(txn != nullptr);
-     (txn->Commit());
-    delete txn;
-    for (auto handle : handles) {
-      delete handle;
-    }
+        // Persist data written to WAL during recovery or by the last Put
+        db->FlushWAL(true);
+        // 2nd crash to recover while having a valid log after the corrupted one.
+        (txn_test_base.ReOpenNoDelete(column_families, &handles));
+        assert(db != nullptr);
+        txn = db->GetTransactionByName("xid");
+        assert(txn != nullptr);
+        (txn->Commit());
+        delete txn;
+        for (auto handle : handles) {
+          delete handle;
+        }
+      }
+  }
 }
-
