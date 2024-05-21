@@ -29,7 +29,7 @@ class MyTransactionTestBase {
     options.env = env;
     options.two_write_queues = two_write_queue;
     // use perThreadDBPath to avoid conflict with other tests
-    dbname = test::PerThreadDBPath("/home/jiexiao/squint/copy_bug1/pmcc/squint_test_dir", "transaction_testdb");
+    dbname = test::PerThreadDBPath("/home/yilegu/squint_test_dir", "transaction_testdb");
 
     Status dtryDB = DestroyDB(dbname, options);
     txn_db_options.transaction_lock_timeout = 0;
@@ -108,7 +108,9 @@ class MyTransactionTestBase {
     } else {
       s = OpenWithStackableDB(cfs, handles);
     }
-    assert(!s.ok() || db != nullptr);
+    printf("ReOpenNoDelete\n");
+    printf("%s\n", s.ToString().c_str());
+    assert(db != nullptr);
     return s;
   }
 
@@ -531,7 +533,7 @@ int main() {
                                                         ColumnFamilyOptions()));
         column_families.push_back(
             ColumnFamilyDescriptor("two", ColumnFamilyOptions()));
-        (txn_test_base.ReOpenNoDelete(column_families, &handles));
+        txn_test_base.ReOpenNoDelete(column_families, &handles);
 
         if (write_after_recovery) {
           // Write data to the log right after the corrupted log
@@ -539,6 +541,7 @@ int main() {
         }
 
         // Persist data written to WAL during recovery or by the last Put
+        assert(db != nullptr);
         db->FlushWAL(true);
         // 2nd crash to recover while having a valid log after the corrupted one.
         (txn_test_base.ReOpenNoDelete(column_families, &handles));
