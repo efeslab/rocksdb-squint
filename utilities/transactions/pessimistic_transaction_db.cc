@@ -200,13 +200,14 @@ Status TransactionDB::Open(const Options& options,
   std::vector<ColumnFamilyHandle*> handles;
   Status s = TransactionDB::Open(db_options, txn_db_options, dbname,
                                  column_families, &handles, dbptr);
+  assert(dbptr != nullptr);
   if (s.ok()) {
     assert(handles.size() == 1);
     // i can delete the handle since DBImpl is always holding a reference to
     // default column family
     delete handles[0];
   }
-
+  assert(dbptr != nullptr);
   return s;
 }
 
@@ -365,6 +366,7 @@ void PessimisticTransactionDB::AddColumnFamily(
 Status PessimisticTransactionDB::CreateColumnFamily(
     const ColumnFamilyOptions& options, const std::string& column_family_name,
     ColumnFamilyHandle** handle) {
+  printf("CreateColumnFamilies Pessis\n");
   InstrumentedMutexLock l(&column_family_mutex_);
   Status s = VerifyCFOptions(options);
   if (!s.ok()) {

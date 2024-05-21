@@ -24,13 +24,14 @@ class MyTransactionTestBase {
     options.unordered_write = write_ordering == kUnorderedWrite;
     options.level0_file_num_compaction_trigger = 2;
     options.merge_operator = MergeOperators::CreateFromStringId("stringappend");
+
     env = new FaultInjectionTestEnv(Env::Default());
     options.env = env;
     options.two_write_queues = two_write_queue;
     // use perThreadDBPath to avoid conflict with other tests
     dbname = test::PerThreadDBPath("/home/jiexiao/squint/copy_bug1/pmcc/squint_test_dir", "transaction_testdb");
 
-    DestroyDB(dbname, options);
+    Status dtryDB = DestroyDB(dbname, options);
     txn_db_options.transaction_lock_timeout = 0;
     txn_db_options.default_lock_timeout = 0;
     txn_db_options.write_policy = write_policy;
@@ -43,7 +44,9 @@ class MyTransactionTestBase {
     // txn_db_options.autogenerate_name = true;
     Status s;
     if (use_stackable_db == false) {
+      std::cout << "Opening DB" << std::endl;
       s = TransactionDB::Open(options, txn_db_options, dbname, &db);
+      assert(db != nullptr);
     } else {
       s = OpenWithStackableDB();
     }
@@ -82,6 +85,7 @@ class MyTransactionTestBase {
     } else {
       s = OpenWithStackableDB();
     }
+
     assert(!s.ok() || db != nullptr);
     return s;
   }
@@ -118,6 +122,7 @@ class MyTransactionTestBase {
     } else {
       s = OpenWithStackableDB();
     }
+    std::cout << "ReOpen: " << s.ToString() << std::endl;
     assert(db != nullptr);
     return s;
   }
@@ -457,64 +462,22 @@ int main() {
     auto dbname = txn_test_base.dbname;
     auto options = txn_test_base.options;
 
-    ////////////////////////////////////////////////////////////////////////////////////////
-
-    // TransactionDB* db;
-    // FaultInjectionTestEnv* env;
-    // std::string dbname;
-    // Options options;
-
-    // TransactionDBOptions txn_db_options;
-    // bool use_stackable_db_;
-    // bool keep_db_local_ = true;
-
-    // bool use_stackable_db;
-    // bool two_write_queue;
-    // TxnDBWritePolicy write_policy;
-    // WriteOrdering write_ordering;
-
-    // options.create_if_missing = true;
-    // options.max_write_buffer_number = 2;
-    // options.write_buffer_size = 4 * 1024;
-    // options.unordered_write = write_ordering == kUnorderedWrite;
-    // options.level0_file_num_compaction_trigger = 2;
-    // options.merge_operator = MergeOperators::CreateFromStringId("stringappend");
-    // env = new FaultInjectionTestEnv(Env::Default());
-    // options.env = env;
-    // options.two_write_queues = two_write_queue;
-    // // use perThreadDBPath to avoid conflict with other tests
-    // dbname = test::PerThreadDBPath("/home/jiexiao/squint/copy_bug1/alice/workload_dir", "transaction_testdb");
-
-    // DestroyDB(dbname, options);
-    // txn_db_options.transaction_lock_timeout = 0;
-    // txn_db_options.default_lock_timeout = 0;
-    // txn_db_options.write_policy = write_policy;
-    // txn_db_options.rollback_merge_operands = true;
-    // // This will stress write unprepared, by forcing write batch flush on every
-    // // write.
-    // txn_db_options.default_write_batch_flush_threshold = 1;
-    // // Write unprepared requires all transactions to be named. This setting
-    // // autogenerates the name so that existing tests can pass.
-    // // txn_db_options.autogenerate_name = true;
-    // Status s;
-    // if (use_stackable_db == false) {
-    //   s = TransactionDB::Open(options, txn_db_options, dbname, &db);
-    // } else {
-    //   s = OpenWithStackableDB();
-    // }
-    // assert(s.ok());
-
-    ////////////////////////// CREATE TABLE //////////////////////////
     /////////////////////// DOUBLE CRASH TEST ////////////////////////
     for (const bool manual_wal_flush : {false, true}) {
       for (const bool write_after_recovery : {false, true}) {
         options.wal_recovery_mode = WALRecoveryMode::kPointInTimeRecovery;
         options.manual_wal_flush = manual_wal_flush;
         txn_test_base.ReOpen();
+       
         std::string cf_name = "two";
         ColumnFamilyOptions cf_options;
         ColumnFamilyHandle* cf_handle = nullptr;
-        (db->CreateColumnFamily(cf_options, cf_name, &cf_handle));
+        assert(db != nullptr);
+        Status s = (reinterpret_cast<PessimisticTransactionDB*>(db)->CreateColumnFamily(cf_options, cf_name, &cf_handle));
+        if (!s.ok()) {
+              std::cerr << "Error creating column family: " << s.ToString() << std::endl;
+              return 1;
+        }
 
         // Add a prepare entry to prevent the older logs from being deleted.
         WriteOptions write_options;

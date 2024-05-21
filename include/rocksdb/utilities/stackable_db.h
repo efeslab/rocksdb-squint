@@ -44,6 +44,7 @@ class StackableDB : public DB {
   virtual Status CreateColumnFamily(const ColumnFamilyOptions& options,
                                     const std::string& column_family_name,
                                     ColumnFamilyHandle** handle) override {
+    printf("CreateColumnFamilies\n");
     return db_->CreateColumnFamily(options, column_family_name, handle);
   }
 
