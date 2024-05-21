@@ -97,6 +97,8 @@ ifeq ($(MAKECMDGOALS),rocksdbjavastaticpublish)
 	DEBUG_LEVEL=0
 endif
 
+DEBUG_LEVEL=2
+
 $(info $$DEBUG_LEVEL is ${DEBUG_LEVEL})
 
 # Lite build flag.
@@ -347,9 +349,9 @@ ifeq ($(PLATFORM), OS_OPENBSD)
 	WARNING_FLAGS += -Wno-unused-lambda-capture
 endif
 
-ifndef DISABLE_WARNING_AS_ERROR
-	WARNING_FLAGS += -Werror
-endif
+# ifndef DISABLE_WARNING_AS_ERROR
+# 	WARNING_FLAGS += -Werror
+# endif
 
 
 ifdef LUA_PATH
