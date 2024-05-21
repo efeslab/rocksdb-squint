@@ -534,7 +534,7 @@ int main() {
         column_families.push_back(
             ColumnFamilyDescriptor("two", ColumnFamilyOptions()));
         txn_test_base.ReOpenNoDelete(column_families, &handles);
-
+        db = txn_test_base.db;
         if (write_after_recovery) {
           // Write data to the log right after the corrupted log
           (db->Put(write_options, "foo5", large_value));
@@ -545,6 +545,7 @@ int main() {
         db->FlushWAL(true);
         // 2nd crash to recover while having a valid log after the corrupted one.
         (txn_test_base.ReOpenNoDelete(column_families, &handles));
+        db = txn_test_base.db;
         assert(db != nullptr);
         txn = db->GetTransactionByName("xid");
         assert(txn != nullptr);
