@@ -722,8 +722,11 @@ Status CompactionJob::Run() {
       }
     };
     for (size_t i = 1; i < compact_->sub_compact_states.size(); i++) {
-      thread_pool.emplace_back(verify_table,
-                               std::ref(compact_->sub_compact_states[i].status));
+      // thread_pool.emplace_back(verify_table,
+      //                          std::ref(compact_->sub_compact_states[i].status));
+
+      // use sequential verification for now
+      verify_table(compact_->sub_compact_states[i].status);
     }
     verify_table(compact_->sub_compact_states[0].status);
     for (auto& thread : thread_pool) {

@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <algorithm>
+#include <iostream>
 #if defined(OS_LINUX)
 #include <linux/fs.h>
 #ifndef FALLOC_FL_KEEP_SIZE
@@ -1719,6 +1720,7 @@ IOStatus PosixDirectory::FsyncWithDirOptions(
     return IOError("while fcntl(F_FULLFSYNC)", "a directory", errno);
   }
 #else   // HAVE_FULLFSYNC
+  std::cout << "Syncing directory " << directory_name_ << std::endl;
   if (fd_ != -1 && fsync(fd_) == -1) {
     s = IOError("While fsync", "a directory", errno);
   }

@@ -405,8 +405,12 @@ IOStatus SetCurrentFile(FileSystem* fs, const std::string& dbname,
   }
   if (s.ok()) {
     if (directory_to_fsync != nullptr) {
+      printf("SetCurrentFile: Fsyncing with dir options\n");
       s = directory_to_fsync->FsyncWithDirOptions(
           IOOptions(), nullptr, DirFsyncOptions(CurrentFileName(dbname)));
+    }
+    else {
+      printf("SetCurrentFile: Fsyncing without dir options\n");
     }
   } else {
     fs->DeleteFile(tmp, IOOptions(), nullptr)
