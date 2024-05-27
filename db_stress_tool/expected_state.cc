@@ -356,6 +356,20 @@ void FileExpectedStateManager::ReadOpFile(std::string op_file_path, std::string 
       } else if (tokens[2] == "DELETE_RANGE") {
         latest_->DeleteRange(std::stoi(tokens[3]), std::stoi(tokens[4]),
                             std::stoi(tokens[5]), false);
+      } else if (tokens[2] == "BATCHED_PUT") {
+        // 10 key-value pairs
+        for (int i = 0; i < 10; i++) {
+          int key_pos = 4 + i * 2;
+          int value_pos = 5 + i * 2;
+          latest_->Put(std::stoi(tokens[3]), key_pos,
+                      value_pos, false);
+        }
+      } else if (tokens[2] == "BATCHED_DELETE") {
+        // 10 keys
+        for (int i = 0; i < 10; i++) {
+          int key_pos = 4 + i;
+          latest_->Delete(std::stoi(tokens[3]),key_pos, false);
+        }
       } else {
         std::cerr << "Invalid operation: " << tokens[2] << std::endl;
         exit(1);
@@ -420,9 +434,23 @@ void FileExpectedStateManager::ReadOpFile(std::string op_file_path, std::string 
       } else if (tokens[2] == "DELETE_RANGE") {
         latest_->DeleteRange(std::stoi(tokens[3]), std::stoi(tokens[4]),
                             std::stoi(tokens[5]), false);
-      } else {
+      } else if (tokens[2] == "BATCHED_PUT") {
+        // 10 key-value pairs
+        for (int i = 0; i < 10; i++) {
+          int key_pos = 4 + i * 2;
+          int value_pos = 5 + i * 2;
+          latest_->Put(std::stoi(tokens[3]), key_pos,
+                      value_pos, false);
+        }
+      } else if (tokens[2] == "BATCHED_DELETE") {
+        // 10 keys
+        for (int i = 0; i < 10; i++) {
+          int key_pos = 4 + i;
+          latest_->Delete(std::stoi(tokens[3]),key_pos, false);
+        }
+      }
+      else {
         std::cerr << "Invalid operation: " << tokens[2] << std::endl;
-        exit(1);
       }
     }
   }
