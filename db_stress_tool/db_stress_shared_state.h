@@ -37,6 +37,12 @@ DECLARE_int32(open_read_fault_one_in);
 
 DECLARE_int32(injest_error_severity);
 
+// squint-specifc flags
+DECLARE_string(squint_mode);
+DECLARE_bool(simple_verify);
+DECLARE_string(opfile_path);
+DECLARE_string(ops_completed_path);
+
 namespace ROCKSDB_NAMESPACE {
 class StressTest;
 
@@ -291,7 +297,7 @@ class SharedState {
   }
 
   bool ShouldVerifyAtBeginning() const {
-    return !FLAGS_expected_values_dir.empty();
+    return !FLAGS_expected_values_dir.empty() && (FLAGS_squint_mode == "none");
   }
 
   bool PrintingVerificationResults() {
@@ -305,6 +311,18 @@ class SharedState {
   }
 
   uint64_t GetStartTimestamp() const { return start_timestamp_; }
+
+  void ReadOpFile(std::string opfile_path, std::string ops_completed_path="") {
+    // convert expected_state_manager_ to FileExpectedStateManager
+    auto file_expected_state_manager =
+        dynamic_cast<FileExpectedStateManager*>(expected_state_manager_.get());
+    if (file_expected_state_manager == nullptr) {
+      fprintf(stderr, "Expected state manager is not a FileExpectedStateManager"
+                      " and cannot read opfile\n");
+      exit(1);
+    }
+    file_expected_state_manager->ReadOpFile(opfile_path, ops_completed_path);
+  }
 
  private:
   static void IgnoreReadErrorCallback(void*) {

@@ -31,6 +31,7 @@
 #include <array>
 #include <chrono>
 #include <cinttypes>
+#include <fstream>
 #include <exception>
 #include <queue>
 #include <thread>
@@ -248,6 +249,12 @@ DECLARE_int32(continuous_verification_interval);
 DECLARE_int32(get_property_one_in);
 DECLARE_string(file_checksum_impl);
 
+// squint-specific flags
+DECLARE_string(squint_mode);
+DECLARE_bool(simple_verify);
+DECLARE_string(opfile_path);
+DECLARE_string(ops_completed_path);
+
 #ifndef ROCKSDB_LITE
 // Options for StackableDB-based BlobDB
 DECLARE_bool(use_blob_db);
@@ -346,6 +353,22 @@ inline enum RepFactory StringToRepFactory(const char* ctype) {
 extern enum RepFactory FLAGS_rep_factory;
 
 namespace ROCKSDB_NAMESPACE {
+
+  // markers for squint tracer
+  inline void dummy_use(int) {}
+
+  inline void SQUINT_OP_BEGIN(int tid, int op_count) { 
+    // make sure tid and op_count not get optimized out
+    dummy_use(tid);
+    dummy_use(op_count);
+  
+   }
+  inline void SQUINT_OP_END(int tid, int op_count) { 
+    // make sure tid and op_count not get optimized out
+    dummy_use(tid);
+    dummy_use(op_count);
+   }
+
 inline enum ROCKSDB_NAMESPACE::CompressionType StringToCompressionType(
     const char* ctype) {
   assert(ctype);

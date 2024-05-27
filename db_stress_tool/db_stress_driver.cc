@@ -30,18 +30,27 @@ void ThreadBody(void* v) {
       shared->GetCondVar()->Wait();
     }
   }
-  thread->shared->GetStressTest()->OperateDb(thread);
+
+  if (FLAGS_squint_mode != "init" && FLAGS_squint_mode != "checker") {
+    thread->shared->GetStressTest()->OperateDb(thread);
+  }
+  
 
   {
     MutexLock l(shared->GetMutex());
     shared->IncOperated();
     if (shared->AllOperated()) {
+      fprintf(stdout, "All threads done operating\n");
       shared->GetCondVar()->SignalAll();
     }
+    fprintf(stdout, "Thread %d done\n", thread->tid);
+
+    if (FLAGS_squint_mode == "workload") return;
     while (!shared->VerifyStarted()) {
       shared->GetCondVar()->Wait();
     }
   }
+
 
   if (!FLAGS_skip_verifydb) {
     thread->shared->GetStressTest()->VerifyDb(thread);
@@ -61,6 +70,29 @@ bool RunStressTest(StressTest* stress) {
   SharedState shared(db_stress_env, stress);
   stress->InitDb(&shared);
   stress->FinishInitDb(&shared);
+
+  if (FLAGS_squint_mode == "init") {
+    fprintf(stdout, "db_stress <> squint: Initialization done\n");
+    return true;
+  }
+
+  if (FLAGS_squint_mode == "checker") {
+    if (FLAGS_simple_verify) {
+      fprintf(stdout, "db_stress <> squint: Checker simply verify started\n");
+      stress->PrintKVCount();
+      fprintf(stdout, "db_stress <> squint: Checker simply verify done\n");
+      return true;
+    }
+    else {
+      if (FLAGS_opfile_path == "") {
+        fprintf(stderr, "db_stress <> squint: Checker opfile path not provided, cannot verify! Please provide opfile path or use simple verify \n");
+        return false;
+      }
+      fprintf(stdout, "db_stress <> squint: Checker opfile verify started, reading opfile \n");
+      shared.ReadOpFile(FLAGS_opfile_path, FLAGS_ops_completed_path);
+
+    }
+  }
 
   if (FLAGS_sync_fault_injection) {
     fault_fs_guard->SetFilesystemDirectWritable(false);
@@ -129,7 +161,17 @@ bool RunStressTest(StressTest* stress) {
     shared.SetStart();
     shared.GetCondVar()->SignalAll();
     while (!shared.AllOperated()) {
+      fprintf(stdout, "Waiting for all threads to operate\n");
       shared.GetCondVar()->Wait();
+    }
+
+    // print out the number of keys in the database
+    stress->PrintKVCount();
+
+
+    if (FLAGS_squint_mode == "workload") {
+      fprintf(stdout, "db_stress <> squint: Workload done\n");
+      return true;
     }
 
     now = clock->NowMicros();
@@ -149,6 +191,10 @@ bool RunStressTest(StressTest* stress) {
     while (!shared.AllDone()) {
       shared.GetCondVar()->Wait();
     }
+  }
+
+  if (FLAGS_squint_mode == "checker") {
+    fprintf(stdout, "db_stress <> squint: Checker done\n");
   }
 
   for (unsigned int i = 1; i < n; i++) {

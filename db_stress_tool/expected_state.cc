@@ -331,6 +331,104 @@ bool FileExpectedStateManager::HasHistory() {
   return saved_seqno_ != kMaxSequenceNumber;
 }
 
+void FileExpectedStateManager::ReadOpFile(std::string op_file_path, std::string ops_completed_path) {
+  printf("[FileExpectedStateManager] Reading op file: %s\n", op_file_path.c_str());
+  if (ops_completed_path == "") {
+    printf("[FileExpectedStateManager] ops_completed_path not provided, assume all operations are applied\n");
+    if (latest_) {
+      latest_->Reset();
+    }
+    std::ifstream op_file(op_file_path);
+    std::string line;
+    // for each line split by ","
+    while (std::getline(op_file, line)) {
+      std::vector<std::string> tokens;
+      std::istringstream iss(line);
+      std::string token;
+      while (std::getline(iss, token, ',')) {
+        tokens.push_back(token);
+      }
+      if (tokens[2] == "PUT") {
+        latest_->Put(std::stoi(tokens[3]), std::stoi(tokens[4]),
+                    std::stoi(tokens[5]), false);
+      } else if (tokens[2] == "DELETE") {
+        latest_->Delete(std::stoi(tokens[3]), std::stoi(tokens[4]), false);
+      } else if (tokens[2] == "DELETE_RANGE") {
+        latest_->DeleteRange(std::stoi(tokens[3]), std::stoi(tokens[4]),
+                            std::stoi(tokens[5]), false);
+      } else {
+        std::cerr << "Invalid operation: " << tokens[2] << std::endl;
+        exit(1);
+      }
+    }
+  }
+  else {
+    // assume the ops_completed_path contain completed operations w/o partial operations
+    printf("[FileExpectedStateManager] ops_completed_path provided, refering to it for completed operations\n");
+    std::unordered_map<int, std::vector<int>> completed_ops;
+    std::ifstream ops_completed_file(ops_completed_path);
+    std::string line;
+    while (std::getline(ops_completed_file, line)) {
+      std::vector<std::string> tokens;
+      std::istringstream iss(line);
+      std::string token;
+      while (std::getline(iss, token, ',')) {
+        tokens.push_back(token);
+      }
+      int tid = std::stoi(tokens[0]);
+      int op_id = std::stoi(tokens[1]);
+      // FIXME: deal with partial operations
+      if (std::stoi(tokens[2]) == 2) {
+        continue;
+      }
+      if (completed_ops.find(tid) == completed_ops.end()) {
+        completed_ops[tid] = std::vector<int>();
+      }
+      completed_ops[tid].push_back(op_id);
+    }
+
+    // sort each vector in completed_ops
+    for (auto& p : completed_ops) {
+      std::sort(p.second.begin(), p.second.end());
+    }
+
+    if (latest_) {
+      latest_->Reset();
+    }
+    std::ifstream op_file(op_file_path);
+    // std::string line;
+    // for each line split by ","
+    while (std::getline(op_file, line)) {
+      std::vector<std::string> tokens;
+      std::istringstream iss(line);
+      std::string token;
+      while (std::getline(iss, token, ',')) {
+        tokens.push_back(token);
+      }
+      if (completed_ops.find(std::stoi(tokens[0])) == completed_ops.end()) {
+        continue;
+      }
+      std::vector<int> cur_tid_completed_ops = completed_ops[std::stoi(tokens[0])];
+      if (std::find(cur_tid_completed_ops.begin(), cur_tid_completed_ops.end(), std::stoi(tokens[1])) == cur_tid_completed_ops.end()) {
+        continue;
+      }
+      if (tokens[2] == "PUT") {
+        latest_->Put(std::stoi(tokens[3]), std::stoi(tokens[4]),
+                    std::stoi(tokens[5]), false);
+      } else if (tokens[2] == "DELETE") {
+        latest_->Delete(std::stoi(tokens[3]), std::stoi(tokens[4]), false);
+      } else if (tokens[2] == "DELETE_RANGE") {
+        latest_->DeleteRange(std::stoi(tokens[3]), std::stoi(tokens[4]),
+                            std::stoi(tokens[5]), false);
+      } else {
+        std::cerr << "Invalid operation: " << tokens[2] << std::endl;
+        exit(1);
+      }
+    }
+  }
+
+}
+
 #ifndef ROCKSDB_LITE
 
 namespace {

@@ -658,6 +658,12 @@ class NonBatchedOpsStressTest : public StressTest {
                  const std::vector<int>& rand_column_families,
                  const std::vector<int64_t>& rand_keys, char (&value)[100],
                  std::unique_ptr<MutexLock>& lock) override {
+    if (FLAGS_opfile_path != "") {
+      if (op_count_.find(thread->tid) == op_count_.end()) {
+        op_count_[thread->tid] = 0;
+      }
+      SQUINT_OP_BEGIN(thread->tid, op_count_[thread->tid]); 
+    }
     auto shared = thread->shared;
     int64_t max_key = shared->GetMaxKey();
     int64_t rand_key = rand_keys[0];
@@ -736,6 +742,12 @@ class NonBatchedOpsStressTest : public StressTest {
       }
     }
     shared->Put(rand_column_family, rand_key, value_base, false /* pending */);
+    // log the put operation
+    if (FLAGS_opfile_path != "") {
+      opfile_ << thread->tid << "," << op_count_[thread->tid] << ",PUT,"
+              << rand_column_family << "," << rand_key << "," << value_base
+              << std::endl;
+    }
     if (!s.ok()) {
       if (FLAGS_injest_error_severity >= 2) {
         if (!is_db_stopped_ && s.severity() >= Status::Severity::kFatalError) {
@@ -753,6 +765,10 @@ class NonBatchedOpsStressTest : public StressTest {
     thread->stats.AddBytesForWrites(1, sz);
     PrintKeyValue(rand_column_family, static_cast<uint32_t>(rand_key), value,
                   sz);
+    if (FLAGS_opfile_path != "") {
+      SQUINT_OP_END(thread->tid, op_count_[thread->tid]);
+      op_count_[thread->tid]++;
+    }
     return s;
   }
 
@@ -760,6 +776,12 @@ class NonBatchedOpsStressTest : public StressTest {
                     const std::vector<int>& rand_column_families,
                     const std::vector<int64_t>& rand_keys,
                     std::unique_ptr<MutexLock>& /* lock */) override {
+    if (FLAGS_opfile_path != "") {
+      if (op_count_.find(thread->tid) == op_count_.end()) {
+        op_count_[thread->tid] = 0;
+      }
+      SQUINT_OP_BEGIN(thread->tid, op_count_[thread->tid]);
+    }
     int64_t rand_key = rand_keys[0];
     int rand_column_family = rand_column_families[0];
     auto shared = thread->shared;
@@ -796,6 +818,12 @@ class NonBatchedOpsStressTest : public StressTest {
 #endif
       }
       shared->Delete(rand_column_family, rand_key, false /* pending */);
+      // log the delete operation
+      if (FLAGS_opfile_path != "") {
+        opfile_ << thread->tid << "," << op_count_[thread->tid] << ",DELETE,"
+                << rand_column_family << "," << rand_key
+                << std::endl;
+      }
       thread->stats.AddDeletes(1);
       if (!s.ok()) {
         if (FLAGS_injest_error_severity >= 2) {
@@ -833,6 +861,12 @@ class NonBatchedOpsStressTest : public StressTest {
 #endif
       }
       shared->SingleDelete(rand_column_family, rand_key, false /* pending */);
+      // log the delete operation
+      if (FLAGS_opfile_path != "") {
+        opfile_ << thread->tid << "," << op_count_[thread->tid] << ",DELETE,"
+                << rand_column_family << "," << rand_key
+                << std::endl;
+      }
       thread->stats.AddSingleDeletes(1);
       if (!s.ok()) {
         if (FLAGS_injest_error_severity >= 2) {
@@ -850,6 +884,10 @@ class NonBatchedOpsStressTest : public StressTest {
         }
       }
     }
+    if (FLAGS_opfile_path != "") {
+      SQUINT_OP_END(thread->tid, op_count_[thread->tid]);
+      op_count_[thread->tid]++;
+    }
     return s;
   }
 
@@ -857,6 +895,12 @@ class NonBatchedOpsStressTest : public StressTest {
                          const std::vector<int>& rand_column_families,
                          const std::vector<int64_t>& rand_keys,
                          std::unique_ptr<MutexLock>& lock) override {
+    if (FLAGS_opfile_path != "") {
+      if (op_count_.find(thread->tid) == op_count_.end()) {
+        op_count_[thread->tid] = 0;
+      }
+      SQUINT_OP_BEGIN(thread->tid, op_count_[thread->tid]);
+    }
     // OPERATION delete range
     std::vector<std::unique_ptr<MutexLock>> range_locks;
     // delete range does not respect disallowed overwrites. the keys for
@@ -909,8 +953,19 @@ class NonBatchedOpsStressTest : public StressTest {
     int covered = shared->DeleteRange(rand_column_family, rand_key,
                                       rand_key + FLAGS_range_deletion_width,
                                       false /* pending */);
+    // log the delete operation
+    if (FLAGS_opfile_path != "") {
+      opfile_ << thread->tid << "," << op_count_[thread->tid] << ",DELETE_RANGE,"
+              << rand_column_family << "," << rand_key << "," << rand_key + FLAGS_range_deletion_width
+              << std::endl;
+    }
+    
     thread->stats.AddRangeDeletions(1);
     thread->stats.AddCoveredByRangeDeletions(covered);
+    if (FLAGS_opfile_path != "") {
+      SQUINT_OP_END(thread->tid, op_count_[thread->tid]);
+      op_count_[thread->tid]++;
+    }
     return s;
   }
 

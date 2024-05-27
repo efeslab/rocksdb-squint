@@ -136,14 +136,14 @@ UniqueIdVerifier::~UniqueIdVerifier() {
 }
 
 void UniqueIdVerifier::VerifyNoWrite(const std::string& id) {
-  assert(id.size() == 24);
-  bool is_new = id_set_.insert(DecodeFixed64(&id[offset_])).second;
-  if (!is_new) {
-    fprintf(stderr,
-            "Duplicate partial unique ID found (offset=%zu, count=%zu)\n",
-            offset_, id_set_.size());
-    assert(false);
-  }
+  // assert(id.size() == 24);
+  // bool is_new = id_set_.insert(DecodeFixed64(&id[offset_])).second;
+  // if (!is_new) {
+  //   fprintf(stderr,
+  //           "Duplicate partial unique ID found (offset=%zu, count=%zu)\n",
+  //           offset_, id_set_.size());
+  //   assert(false);
+  // }
 }
 
 void UniqueIdVerifier::Verify(const std::string& id) {

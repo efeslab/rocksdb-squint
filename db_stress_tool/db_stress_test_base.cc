@@ -91,6 +91,12 @@ StressTest::StressTest()
       exit(1);
     }
   }
+  if (FLAGS_opfile_path != "" && FLAGS_squint_mode == "workload") {
+    // if file exist, remove it
+    db_stress_env->DeleteFile(FLAGS_opfile_path);
+    opfile_.open(FLAGS_opfile_path, std::ios::out);
+  
+  }
 }
 
 StressTest::~StressTest() {
@@ -105,6 +111,10 @@ StressTest::~StressTest() {
   }
   cmp_cfhs_.clear();
   delete cmp_db_;
+
+  if (FLAGS_opfile_path != "" && FLAGS_squint_mode == "workload") {
+    opfile_.close();
+  }
 }
 
 std::shared_ptr<Cache> StressTest::NewCache(size_t capacity,
@@ -432,6 +442,20 @@ void StressTest::PrintStatistics() {
     fprintf(stdout, "Secondary instances STATISTICS:\n%s\n",
             dbstats_secondaries->ToString().c_str());
   }
+}
+
+void StressTest::PrintKVCount() {
+  uint64_t total_keys = 0;
+  fprintf(stdout, "### PrintKVCount START ###\n");
+  for (auto cfh : column_families_) {
+    uint64_t keys = 0;
+    db_->GetIntProperty(cfh, "rocksdb.estimate-num-keys", &keys);
+    fprintf(stdout, "Column family %s has %" PRIu64 " keys\n", cfh->GetName().c_str(),
+            keys);
+    total_keys += keys;
+  }
+  fprintf(stdout, "Total keys in the database: %" PRIu64 "\n", total_keys);
+  fprintf(stdout, "### PrintKVCount END ###\n");
 }
 
 // Currently PreloadDb has to be single-threaded.
@@ -2361,6 +2385,10 @@ void StressTest::PrintEnv() const {
           FLAGS_wal_compression.c_str());
   fprintf(stdout, "Try verify sst unique id  : %d\n",
           static_cast<int>(FLAGS_verify_sst_unique_id_in_manifest));
+  fprintf(stdout, "Squint mode              : %s\n",
+          FLAGS_squint_mode.c_str());
+  fprintf(stdout, "Simple verify            : %d\n",
+          static_cast<int>(FLAGS_simple_verify));
 
   fprintf(stdout, "------------------------------------------------\n");
 }
@@ -2428,6 +2456,8 @@ void StressTest::Open(SharedState* shared) {
   }
 
   fprintf(stdout, "DB path: [%s]\n", FLAGS_db.c_str());
+
+  
 
   Status s;
 
@@ -2655,7 +2685,11 @@ void StressTest::Open(SharedState* shared) {
       assert(trans.size() == 0);
 #endif
     }
-    assert(s.ok());
+    // assert(s.ok());
+    if (!s.ok()) {
+      fprintf(stderr, "open error: %s\n", s.ToString().c_str());
+      exit(1);
+    }
     assert(column_families_.size() ==
            static_cast<size_t>(FLAGS_column_families));
 

@@ -894,7 +894,7 @@ DEFINE_int32(verify_checksum_one_in, 0,
              " VerifyChecksum() are disabled.");
 DEFINE_int32(verify_db_one_in, 0,
              "If non-zero, call VerifyDb() once for every N ops. 0 indicates "
-             "that VerifyDb() will not be called in OperateDb(). Note that "
+             "that () will not be called in OperateDb(). Note that "
              "enabling this can slow down tests.");
 
 DEFINE_int32(continuous_verification_interval, 1000,
@@ -963,6 +963,22 @@ DEFINE_uint64(user_timestamp_size, 0,
 DEFINE_int32(open_metadata_write_fault_one_in, 0,
              "On non-zero, enables fault injection on file metadata write "
              "during DB reopen.");
+
+DEFINE_string(squint_mode, "none",
+              "'none' or 'init' or 'workload' or 'checker'. If set to 'none', squint mode is disabled and db_stress runs as usual. If set to 'init', will initialize a database."
+              "If set to 'workload', will run OperateDB"
+              "If set to 'checker', will run VerifyDB");
+
+
+DEFINE_bool(simple_verify, false,
+            "If true, use a simple verification method that prints "
+            "number of keys in the DB.");
+
+DEFINE_string(opfile_path, "",
+              "Path to the file logging the operations performed.");
+
+DEFINE_string(ops_completed_path, "",
+              "Path to the file logging the operations completed, this will be provided by Squint.");
 
 #ifndef ROCKSDB_LITE
 DEFINE_string(secondary_cache_uri, "",

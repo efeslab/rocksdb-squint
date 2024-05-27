@@ -43,6 +43,8 @@ class StressTest {
 
   void PrintStatistics();
 
+  void PrintKVCount();
+
  protected:
   Status AssertSame(DB* db, ColumnFamilyHandle* cf,
                     ThreadState::SnapshotState& snap_state);
@@ -273,6 +275,10 @@ class StressTest {
   DB* cmp_db_;
   std::vector<ColumnFamilyHandle*> cmp_cfhs_;
   bool is_db_stopped_;
+
+  // for squint marker and logging
+  std::unordered_map<int, int> op_count_;
+  std::ofstream opfile_; 
 };
 
 // Load options from OPTIONS file and populate `options`.

@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <memory>
+#include <iostream>
 
 #include "db/dbformat.h"
 #include "file/file_util.h"
@@ -69,6 +70,10 @@ class ExpectedState {
   // Requires external locking covering `key` in `cf`.
   bool Exists(int cf, int64_t key);
 
+// Requires external locking preventing concurrent execution with any other
+  // member function.
+  void Reset();
+
  private:
   // Requires external locking covering `key` in `cf`.
   std::atomic<uint32_t>& Value(int cf, int64_t key) const {
@@ -83,9 +88,6 @@ class ExpectedState {
     return sizeof(std::atomic<uint32_t>) * num_column_families_ * max_key_;
   }
 
-  // Requires external locking preventing concurrent execution with any other
-  // member function.
-  void Reset();
 
   std::atomic<uint32_t>* values_;
 };
@@ -235,6 +237,9 @@ class FileExpectedStateManager : public ExpectedStateManager {
   // operations from "`a`.trace" onto "`a`.state", and then copies the resulting
   // file into "LATEST.state".
   Status Restore(DB* db) override;
+
+  // for reading the op file and update the expected mmap buffer
+  void ReadOpFile(std::string op_file_path, std::string ops_completed_path);
 
  private:
   // Requires external locking preventing concurrent execution with any other
