@@ -40,10 +40,22 @@ class NonBatchedOpsStressTest : public StressTest {
     if (thread->tid == shared->GetNumThreads() - 1) {
       end = max_key;
     }
+    // search for start = 6111 in cf == 1
+    // std::unique_ptr<Iterator> iter_test(
+    //         db_->NewIterator(options, column_families_[1]));
+    // iter_test->Seek(Key(6111));
+    // if (iter_test->Valid() && (iter_test->key().compare(Key(6111)) == 0)) {
+    //   auto from_db = iter_test->value().ToString();
+    //   fprintf(stderr, "Found key 6111 in cf 1 with value %s\n", from_db.c_str());
+    // } else {
+    //   fprintf(stderr, "Did not find key 6111 in cf 1\n");
+    // }
+    
+
     for (size_t cf = 0; cf < column_families_.size(); ++cf) {
-      if (thread->shared->HasVerificationFailedYet()) {
-        break;
-      }
+      // if (thread->shared->HasVerificationFailedYet()) {
+      //   break;
+      // }
       if (thread->rand.OneIn(4)) {
         // 1/4 chance use iterator to verify this range
         Slice prefix;
@@ -53,9 +65,9 @@ class NonBatchedOpsStressTest : public StressTest {
         iter->Seek(seek_key);
         prefix = Slice(seek_key.data(), prefix_to_use);
         for (auto i = start; i < end; i++) {
-          if (thread->shared->HasVerificationFailedYet()) {
-            break;
-          }
+          // if (thread->shared->HasVerificationFailedYet()) {
+          //   break;
+          // }
           std::string from_db;
           std::string keystr = Key(i);
           Slice k = keystr;
@@ -93,9 +105,9 @@ class NonBatchedOpsStressTest : public StressTest {
       } else if (thread->rand.OneIn(3)) {
         // 1/4 chance use Get to verify this range
         for (auto i = start; i < end; i++) {
-          if (thread->shared->HasVerificationFailedYet()) {
-            break;
-          }
+          // if (thread->shared->HasVerificationFailedYet()) {
+          //   break;
+          // }
           std::string from_db;
           std::string keystr = Key(i);
           Slice k = keystr;
@@ -110,9 +122,9 @@ class NonBatchedOpsStressTest : public StressTest {
       } else if (thread->rand.OneIn(2)) {
         // 1/4 chance use MultiGet to verify this range
         for (auto i = start; i < end;) {
-          if (thread->shared->HasVerificationFailedYet()) {
-            break;
-          }
+          // if (thread->shared->HasVerificationFailedYet()) {
+          //   break;
+          // }
           // Keep the batch size to some reasonable value
           size_t batch_size = thread->rand.Uniform(128) + 1;
           batch_size = std::min<size_t>(batch_size, end - i);
@@ -147,9 +159,9 @@ class NonBatchedOpsStressTest : public StressTest {
         merge_operands_info.expected_max_number_of_operands =
             static_cast<int>(values.size());
         for (auto i = start; i < end; i++) {
-          if (thread->shared->HasVerificationFailedYet()) {
-            break;
-          }
+          // if (thread->shared->HasVerificationFailedYet()) {
+          //   break;
+          // }
           std::string from_db;
           std::string keystr = Key(i);
           Slice k = keystr;
@@ -1295,9 +1307,9 @@ class NonBatchedOpsStressTest : public StressTest {
   bool VerifyOrSyncValue(int cf, int64_t key, const ReadOptions& /*opts*/,
                          SharedState* shared, const std::string& value_from_db,
                          const Status& s, bool strict = false) const {
-    if (shared->HasVerificationFailedYet()) {
-      return false;
-    }
+    // if (shared->HasVerificationFailedYet()) {
+    //   return false;
+    // }
     // compare value_from_db with the value in the shared state
     uint32_t value_base = shared->Get(cf, key);
     if (value_base == SharedState::UNKNOWN_SENTINEL) {
