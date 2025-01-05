@@ -4897,6 +4897,12 @@ Status VersionSet::ProcessManifestWrites(
       if (!io_s.ok()) {
         s = io_s;
       }
+      // get new manifest file name
+      std::string new_manifest_file_name = DescriptorFileName(
+                                                  pending_manifest_file_number_);
+      // log current manifest file name
+      ROCKS_LOG_INFO(db_options_->info_log, "SetCurrentFile:%s\n",
+                     new_manifest_file_name.c_str());
     }
 
     if (s.ok()) {

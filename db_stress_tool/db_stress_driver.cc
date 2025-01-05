@@ -65,6 +65,72 @@ void ThreadBody(void* v) {
   }
 }
 
+int VerifySetCurrentFile(std::string directoryPath) {
+std::string logFilePath = directoryPath + "/LOG";
+    std::string currentFilePath = directoryPath + "/CURRENT";
+
+    // Check if both files exist
+    if (!std::filesystem::exists(logFilePath) || !std::filesystem::exists(currentFilePath)) {
+        std::cerr << "Error: Files LOG or CURRENT not found in the specified directory." << std::endl;
+        return 1;
+    }
+
+    std::ifstream logFile(logFilePath);
+    std::string line;
+    std::string lastSetCurrentFile;
+
+    // Read the LOG file and find the last occurrence of "SetCurrentFile: xxx"
+    while (getline(logFile, line)) {
+        std::size_t found = line.find("SetCurrentFile:");
+        if (found != std::string::npos) {
+            lastSetCurrentFile = line.substr(found + 15); // 15 is the length of "SetCurrentFile:"
+        }
+    }
+    logFile.close();
+
+    // Trim potential whitespace
+    lastSetCurrentFile.erase(0, lastSetCurrentFile.find_first_not_of(" \n\r\t"));
+    lastSetCurrentFile.erase(lastSetCurrentFile.find_last_not_of(" \n\r\t") + 1);
+
+    // Also trim any "/" at first
+    if (lastSetCurrentFile.front() == '/') {
+        lastSetCurrentFile.erase(0, 1);
+    }
+
+    if (lastSetCurrentFile.empty()) {
+        std::cerr << "Error: No 'SetCurrentFile' entry found in LOG." << std::endl;
+        return 1;
+    }
+
+    // get the MANIFEST number
+    std::size_t found = lastSetCurrentFile.find("MANIFEST-");
+    unsigned long long logManifestNumber = std::stoull(lastSetCurrentFile.substr(found + 9)); // 9 is the length of "MANIFEST-"
+
+    // Read the CURRENT file and compare its contents with lastSetCurrentFile
+    std::ifstream currentFile(currentFilePath);
+    std::string currentContent;
+    getline(currentFile, currentContent);
+    currentFile.close();
+
+    // Trim potential whitespace
+    currentContent.erase(0, currentContent.find_first_not_of(" \n\r\t"));
+    currentContent.erase(currentContent.find_last_not_of(" \n\r\t") + 1);
+
+    // Get the MANIFEST number from the CURRENT file
+    found = currentContent.find("MANIFEST-");
+    unsigned long long currentManifestNumber = std::stoull(currentContent.substr(found + 9)); // 9 is the length of "MANIFEST-"
+
+    // Compare and return results based on comparison
+    // the number in the LOG should be smaller than or equal to the number in the CURRENT
+    if (logManifestNumber > currentManifestNumber) {
+        std::cerr << "Error: MANIFEST number in LOG is greater than the one in CURRENT." << std::endl;
+        return 1;
+    } else {
+        std::cout << "MANIFEST number in LOG and CURRENT match." << std::endl;
+        return 0;
+    }
+}
+
 bool RunStressTest(StressTest* stress) {
   SystemClock* clock = db_stress_env->GetSystemClock().get();
   SharedState shared(db_stress_env, stress);
@@ -80,6 +146,11 @@ bool RunStressTest(StressTest* stress) {
     if (FLAGS_simple_verify) {
       fprintf(stdout, "db_stress <> squint: Checker simply verify started\n");
       stress->PrintKVCount();
+      fprintf(stdout, "db_stress <> squint: Checker starting SetCurrentFile verification process\n");
+      if (VerifySetCurrentFile(FLAGS_db)) {
+        fprintf(stdout, "db_stress <> squint: Checker SetCurrentFile verification failed\n");
+        return false;
+      }
       fprintf(stdout, "db_stress <> squint: Checker simply verify done\n");
       return true;
     }
@@ -193,7 +264,16 @@ bool RunStressTest(StressTest* stress) {
     }
   }
 
+  bool checker_failed = false;
   if (FLAGS_squint_mode == "checker") {
+    fprintf(stdout, "db_stress <> squint: Checker original verification process completes\n");
+    fprintf(stdout, "db_stress <> squint: Checker starting SetCurrentFile verification process\n");
+    if (VerifySetCurrentFile(FLAGS_db)) {
+      fprintf(stdout, "db_stress <> squint: Checker SetCurrentFile verification failed\n");
+      checker_failed = true;
+    } else {
+      fprintf(stdout, "db_stress <> squint: Checker SetCurrentFile verification passed\n");
+    }
     fprintf(stdout, "db_stress <> squint: Checker done\n");
   }
 
@@ -223,7 +303,7 @@ bool RunStressTest(StressTest* stress) {
     }
   }
 
-  if (shared.HasVerificationFailedYet()) {
+  if (shared.HasVerificationFailedYet() || checker_failed) {
     fprintf(stderr, "Verification failed :(\n");
     return false;
   }

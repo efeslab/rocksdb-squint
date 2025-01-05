@@ -36,6 +36,11 @@
 #include <queue>
 #include <thread>
 
+#include <iostream>
+#include <string>
+#include <filesystem>
+
+
 #include "db/db_impl/db_impl.h"
 #include "db/version_set.h"
 #include "db_stress_tool/db_stress_env_wrapper.h"
