@@ -10,9 +10,9 @@ BASH_EXISTS := $(shell which bash)
 SHELL := $(shell which bash)
 
 CLEAN_FILES = # deliberately empty, so we can append below.
-CFLAGS += ${EXTRA_CFLAGS}
-CXXFLAGS += ${EXTRA_CXXFLAGS}
-LDFLAGS += $(EXTRA_LDFLAGS)
+CFLAGS += ${EXTRA_CFLAGS} -Wno-coverage-invalid-line-number
+CXXFLAGS += ${EXTRA_CXXFLAGS} -Wno-coverage-invalid-line-number
+LDFLAGS += $(EXTRA_LDFLAGS) -lgcov
 MACHINE ?= $(shell uname -m)
 ARFLAGS = ${EXTRA_ARFLAGS} rs
 STRIPFLAGS = -S -x
@@ -97,7 +97,14 @@ ifeq ($(MAKECMDGOALS),rocksdbjavastaticpublish)
 	DEBUG_LEVEL=0
 endif
 
+DEBUG_LEVEL=2
+
 $(info $$DEBUG_LEVEL is ${DEBUG_LEVEL})
+
+# if DEBUG_LEVEL is 2, add coverage flags
+ifeq ($(DEBUG_LEVEL), 2)
+	OPT += --coverage
+endif	
 
 # Lite build flag.
 LITE ?= 0
