@@ -1487,14 +1487,22 @@ Status DBImpl::Open(const DBOptions& db_options, const std::string& dbname,
       // empty, and thus missing the consecutive seq hint to distinguish
       // middle-log corruption to corrupted-log-remained-after-recovery. This
       // case also will be addressed by a dummy write.
-      if (recovered_seq != kMaxSequenceNumber) {
-        WriteBatch empty_batch;
-        WriteBatchInternal::SetSequence(&empty_batch, recovered_seq);
+      
+      // Trigger recovery code during ReOpen(), but do not rely on double crash recovery
+      if (recovered_seq == kMaxSequenceNumber && impl->immutable_db_options_.add_empty_batch) {
+        WriteBatch dummy_batch;
+        WriteBatchInternal::SetSequence(&dummy_batch, recovered_seq);
+        dummy_batch.Put("dummy_key_for_recovery", "dummy_value_for_recovery");
         WriteOptions write_options;
         uint64_t log_used, log_size;
         log::Writer* log_writer = impl->logs_.back().writer;
-        s = impl->WriteToWAL(empty_batch, log_writer, &log_used, &log_size);
+        s = impl->WriteToWAL(dummy_batch, log_writer, &log_used, &log_size);
         printf("DEBUG\n");
+        ROCKS_LOG_INFO(impl->immutable_db_options_.info_log,
+                         "Dummy write to log %" PRIu64 " for recovery: %s",
+                         impl->logfile_number_, s.ToString().c_str());
+        // FLush the info_log
+        LogFlush(impl->immutable_db_options_.info_log);
       }
     }
   }

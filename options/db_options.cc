@@ -90,6 +90,7 @@ ImmutableDBOptions::ImmutableDBOptions(const DBOptions& options)
       preserve_deletes(options.preserve_deletes),
       two_write_queues(options.two_write_queues),
       manual_wal_flush(options.manual_wal_flush),
+    add_empty_batch(options.add_empty_batch),
       atomic_flush(options.atomic_flush),
       avoid_unnecessary_blocking_io(options.avoid_unnecessary_blocking_io),
       persist_stats_to_disk(options.persist_stats_to_disk),
